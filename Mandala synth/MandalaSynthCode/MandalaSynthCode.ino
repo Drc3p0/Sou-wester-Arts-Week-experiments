@@ -1,58 +1,6 @@
-/* Use a Piezo sensor (percussion / drum) to send USB MIDI note on
-   messages, where the "velocity" represents how hard the Piezo was
-   tapped.
-
-   Connect a Pieze sensor to analog pin.  This example was tested
-   with Murata 7BB-27-4L0.  Almost any piezo sensor (not a buzzer with
-   built-in oscillator electronics) may be used.  However, Piezo
-   sensors are easily damaged by excessive heat if soldering.  It
-   is highly recommended to buy a Piezo with wires already attached!
-
-   Use a 100K resistor between A0 to GND, to give the sensor a "load".
-   The value of this resistor determines how "sensitive" the circuit is.
-
-   A pair of 1N4148 diodes are recommended to protect the analog pin.
-   The first diode connects to A0 with its stripe (cathode) and the other
-   side to GND.  The other diode connects its non-stripe (anode) side to
-   A0, and its stripe (cathode) side to 3.3V.
-
-   Sensitivity may also be tuned with the map() function.  Uncomment
-   the Serial.print lines to see the actual analog measurements in the
-   Arduino Serial Monitor.
-
-   You must select MIDI from the "Tools > USB Type" menu
-
-This is a library for the MPR121 12-channel Capacitive touch sensor
-
-Designed specifically to work with the MPR121 Breakout in the Adafruit shop 
-  ----> https://www.adafruit.com/products/
-
-These sensors use I2C communicate, at least 2 pins are required 
-to interface
-
-Adafruit invests time and resources providing this open source code, 
-please support Adafruit and open-source hardware by purchasing 
-products from Adafruit!
-
-Written by Limor Fried/Ladyada for Adafruit Industries.  
-BSD license, all text above must be included in any redistribution
-**********************************************************/
-
-//sketch in progress.  trying to read i2c from mpr121 and send midi message from teensy in response to which pin is touched. 
+//code used to send repeating CC message with triggerMidi(), but that's been commented out, so it only sends a single 'noteOn/noteOff message.
 //important links: teensy wire library: https://www.pjrc.com/teensy/td_libs_Wire.html
 // teensy midi library: https://www.pjrc.com/teensy/td_midi.html
-
-//Drum stuff
-int state[] = {0,0,0,0,0,0}; // 0=idle, 1=looking for peak, 2=ignore aftershocks
-int peak[] = {0,0,0,0,0,0};    // remember the highest reading
-elapsedMillis msec[] = {0,0,0,0,0,0}; // timer to end states 1 and 2
-const int numDrumPins = 6;
-const int drumNotes[] = {38,39,40,41,42,43};
-const int drumPins[] = {A0, A1, A2, A7, A8, A9};
-const int channel = 1;
-const int thresholdMin = 12;  // minimum reading, avoid "noise"
-const int aftershockMillis = 60; // time of aftershocks & vibration
-
 
 #include <Wire.h>
 #include "Adafruit_MPR121.h"
@@ -110,7 +58,6 @@ void triggerLoop(); // hoisted, defined below.
 Ticker repeatTimer(triggerLoop, TRIGGER_DURATION, 0, MILLIS);
 Ticker ledFrameTimer(ledFrameLoop, 1000/FRAMES_PER_SECOND, 0, MILLIS);
 Ticker ambientLEDs(startAmbient, AMBIENT_DELAY, 0 , MILLIS);
-Ticker PiezoEffect(stopPiezo, 1000, 0 , MILLIS);
 
 #define MPR121_TOUCH_THRESHOLD_DEFAULT 20  ///< default touch threshold value (was 12)
 #define MPR121_RELEASE_THRESHOLD_DEFAULT 6 ///< default relese threshold value (was 6)
@@ -131,9 +78,11 @@ const uint8_t controlValA[] = {127,0,127,0,127,0,127,0,127,0,127,0}; //Change to
 const uint8_t controlValB[] = {127,127,127,127,127,127,127,127,127,127,127,127}; //Change to #'s stefan is using
 uint8_t ElectrodeTouchedA[numElectrodes] = {0,0,0,0,0,0,0,0,0,0,0,0};
 uint8_t ElectrodeTouchedB[numElectrodes] = {0,0,0,0,0,0,0,0,0,0,0,0};
+const int channel = 1;
 
 //old MIDI output notes ?? can  delete?
-const uint8_t notes[numElectrodes] = {36, 38, 40, 43, 45, 47, 48, 50, 52, 55, 57, 60}; //added by drc
+const uint8_t notesA[numElectrodes] = {36, 38, 40, 43, 45, 47, 48, 50, 52, 55, 57, 60}; //added by drc
+const uint8_t notesB[numElectrodes] = {36, 38, 40, 43, 45, 47, 48, 50, 52, 55, 57, 60}; //added by drc
 
 
 void setup() {
@@ -176,50 +125,8 @@ repeatTimer.start();
 
 void loop() {
 
-//drum stuff
-while (usbMIDI.read()) { } // ignore incoming messages??
-  for (uint8_t x=0; x<numDrumPins; x++) { //changed i<0 to i<numElectrodes
-    int value = analogRead(drumPins[x]);
 
-    if (state[x] == 0) {
-      // IDLE state: if any reading is above a threshold, begin peak
-      if (value > thresholdMin) {
-        //Serial.println("begin state 1");
-        state[x] = 1;
-        peak[x] = value;
-        msec[x] = 0;
-      }
-    } else if (state[x] == 1) {
-      // Peak Tracking state: for 10 ms, capture largest reading
-      if (value > peak[x]) {
-        peak[x] = value;
-      }
-      if (msec[x] >= 10) {
-        Serial.print("peak = ");
-        Serial.println(peak[x]);
-        trigger_leds = true;
-        ambient_leds = false;
-        PiezoEffect.interval(peak[x]*10);
-        //starts the piezo decay timer and the timer to start ambient after no action
-        PiezoEffect.start();
-        ambientLEDs.start(); 
-        
-        //Serial.println("begin state 2");
-        int velocity = map(peak[x], thresholdMin, 1023, 1, 127);
-        usbMIDI.sendNoteOn(drumNotes[x], velocity, channel);
-        state[x] = 2;
-        msec[x] = 0;
-      }
-    } else {
-      // Ignore Aftershock state: wait for things to be quiet again
-      if (value > thresholdMin) {
-        msec[x] = 0; // keep resetting timer if above threshold
-      } else if (msec[x] > 30) {
-        //Serial.println("begin state 0");
-        usbMIDI.sendNoteOff(drumNotes[x], 0, channel);
-        state[x] = 0; // go back to idle after 30 ms below threshold
-      }
-    }
+ //all of this was within the drum loop, might not need
   // key repeat timer
   repeatTimer.update();
 
@@ -229,9 +136,9 @@ while (usbMIDI.read()) { } // ignore incoming messages??
   // turn on ambient LEDs timer
   ambientLEDs.update();
   FastLED.show(); 
-  PiezoEffect.update();
 
-} 
+//
+ 
 
   // Get the currently touched pads
   currtouchedA = capA.touched();
@@ -251,6 +158,7 @@ void checkElectrodes(){
       //Serial.print(i); Serial.println(" touched of A");
       // set the array value to 1 on touch
       ElectrodeTouchedA[i] = 1;
+      usbMIDI.sendNoteOn(notesA[i], 127, channel); // note, velocity, channel
 
       // on touch, turn off ambient leds and turn on trigger_leds
       ambient_leds = false;
@@ -264,6 +172,7 @@ void checkElectrodes(){
       //Serial.print(i); Serial.println(" released of A");
       // set it back to 0 on release
       ElectrodeTouchedA[i] = 0;  
+      usbMIDI.sendNoteOff(notesA[i], 127, channel); // note, velocity, channel
 
       trigger_leds = false;
       ambient_leds = false;
@@ -281,6 +190,7 @@ void checkElectrodes(){
       //Serial.print(i); Serial.println(" touched of B");
       // set the array value to 1 on touch
       ElectrodeTouchedB[i] = 1;
+      usbMIDI.sendNoteOn(notesB[i], 127, channel); // note, velocity, channel
 
       // on touch, turn off ambient leds and turn on trigger_leds
       ambient_leds = false;
@@ -294,6 +204,7 @@ void checkElectrodes(){
       //Serial.print(i); Serial.println(" released of B");
       // set it back to 0 on release
       ElectrodeTouchedB[i] = 0;  
+      usbMIDI.sendNoteOff(notesB[i], 127, channel); // note, velocity, channel
 
       trigger_leds = false;
       ambient_leds = false;
@@ -316,10 +227,10 @@ void triggerLoop(){
   // this fires on a timer and anything pressed triggers midi
   for (uint8_t i=0; i<numElectrodes; i++) { 
     if (ElectrodeTouchedA[i]) {
-      triggerMidiA(i);
+     // triggerMidiA(i);
     }
      if (ElectrodeTouchedB[i]) {
-      triggerMidiB(i);
+     // triggerMidiB(i);
     }
   }
   //Serial.print(ElectrodeTouched[0]);
@@ -331,11 +242,6 @@ void startAmbient(){
   // this fires after the ambient timer has elapsed.
   // it will start the leds doing the ambient pattern until set to false.
   ambient_leds = true;
-}
-
-void stopPiezo(){
-  // after piezo timer finishes turn off effect.
-  trigger_leds = false;
 }
 
 void ledFrameLoop(){
