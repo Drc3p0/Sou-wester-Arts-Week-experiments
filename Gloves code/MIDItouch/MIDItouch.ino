@@ -1,4 +1,5 @@
-#include "MIDIcontroller.h"
+#i
+nclude "MIDIcontroller.h"
 
 // This is an example of how to set up a capacitive touch
 // sensor as a MIDI input. Any capacitive object connected

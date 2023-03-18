@@ -81,8 +81,13 @@ uint8_t ElectrodeTouchedB[numElectrodes] = {0,0,0,0,0,0,0,0,0,0,0,0};
 const int channel = 1;
 
 //old MIDI output notes ?? can  delete?
-const uint8_t notesA[numElectrodes] = {36, 38, 40, 43, 45, 47, 48, 50, 52, 55, 57, 60}; //added by drc
-const uint8_t notesB[numElectrodes] = {36, 38, 40, 43, 45, 47, 48, 50, 52, 55, 57, 60}; //added by drc
+//40,43, 45,48, 50,52, 55,57, 64,66, 60,62
+// 39x,40, 42 X,43,  47X,48,  49X,50,  54X,55,  51X,52
+const uint8_t notesA[numElectrodes] = {39,40,42,43,47,48,49,50,54,55,51,52}; //added by drc
+
+//const uint8_t notesA[numElectrodes] = {40,43,45,48,50,52,55,57,64,66,60,62}; //added by drc
+
+const uint8_t notesB[numElectrodes] = {1,2,3,4,12,24,26,28,31,33,36,38}; //added by drc
 
 
 void setup() {
