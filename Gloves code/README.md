@@ -5,3 +5,8 @@ Can be controlled with a teensy and wires going to the gloves, but would love to
 
 library ideas: 
 https://github.com/max22-/ESP32-BLE-MIDI
+
+Using this library currently.  Encountering an issue with the bluetooth initialization due to an error with the nimBLE library.  Might need to re-upload the Arduino15 folder esp32 data to fix this?  still figuring it out.  
+
+The ESP32C3 has built in battery management, but there is no LED indicator by default.  this needs to be added to the code manually if you want any kind of power indication. https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/
+
